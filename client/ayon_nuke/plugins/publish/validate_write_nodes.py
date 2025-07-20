@@ -13,6 +13,8 @@ from ayon_core.pipeline.publish import (
     OptionalPyblishPluginMixin
 )
 
+KNOBS_TO_SKIP = ("file", "tile_color", "colorspace")
+
 
 class RepairNukeWriteNodeAction(pyblish.api.Action):
     label = "Repair"
@@ -121,13 +123,17 @@ class ValidateNukeWriteNode(
                 )
 
             key = knob_data["name"]
-            if key in exposed_knobs or key in ("file", "tile_color"):
+            if key in exposed_knobs or key in KNOBS_TO_SKIP:
                 # This is not a knob we need to validate as it is likely
                 # not matching default value but edited by user.
                 continue
 
             values = values_by_name[key]
-
+            self.log.debug(
+                "Checking write node's knob: `{}` with values: {}".format(
+                    key, values
+                )
+            )
             try:
                 node_value = write_node[key].value()
 

@@ -78,7 +78,7 @@ EXCLUDED_KNOB_TYPE_ON_READ = (
 JSON_PREFIX = "JSON:::"
 ROOT_DATA_KNOB = "publish_context"
 INSTANCE_DATA_KNOB = "publish_instance"
-
+SKIP_VERSION_VALIDATION_KNOB = "skip_version_validattion"
 
 class DeprecatedWarning(DeprecationWarning):
     pass
@@ -175,6 +175,11 @@ def set_node_data(node, knobname, data):
     knob.setValue(knob_value)
     knob.setFlag(nuke.INVISIBLE)
     node.addKnob(knob)
+    
+    # # Adding special knob to hide the node from version validation
+    # label = SKIP_VERSION_VALIDATION_KNOB.replace('_', ' ').title()
+    # node.addKnob(nuke.Boolean_Knob(SKIP_VERSION_VALIDATION_KNOB, label, tap=NODE_TAB_NAME))
+    # node.knob(SKIP_VERSION_VALIDATION_KNOB).setValue(False)
 
 
 def get_node_data(node, knobname):
@@ -1087,6 +1092,7 @@ def create_prenodes(
     return last_node
 
 
+
 def create_write_node(
     name,
     data,
@@ -1246,6 +1252,9 @@ def create_write_node(
         # connect to previous node
         now_node.setInput(0, prev_node)
 
+
+    add_profile_knob(GN, data)
+
     # add divider
     GN.addKnob(nuke.Text_Knob('', 'Rendering'))
 
@@ -1357,6 +1366,77 @@ def set_node_knobs_from_settings(node, knob_settings, **kwargs):
             knob_type, knob_value)
 
         node[knob_name].setValue(knob_value)
+
+
+def add_profile_knob(GN, data):
+    plugin_name = data["creator"]
+    
+    all_nuke_settings = get_project_settings(Context.project_name)["nuke"]
+    create_settings = all_nuke_settings.get("create", {})
+    creator_plugin_settings = create_settings.get(plugin_name, {})
+    default_variants = creator_plugin_settings.get("default_variants", [])
+
+    GN.addKnob(nuke.Text_Knob('divider', 'Render Types'))
+    # GN.addKnob(nuke.Enumeration_Knob('ayon_publish_type', 'Type', ["Render", "Prerender"]))
+    GN.addKnob(nuke.Enumeration_Knob('profile', 'Profile', default_variants))
+    GN.addKnob(nuke.Text_Knob("_separator", ""))
+    
+    data["variant"] = GN['profile'].value()
+    data["productName"] = data["productType"] + data["variant"].capitalize()
+    GN.setName(data["productName"])
+    
+
+def update_node(node):
+    rawdata = node[INSTANCE_DATA_KNOB].getValue()
+    ayon_data = json.loads(rawdata[len(JSON_PREFIX):])
+    ayon_data["variant"] = node['profile'].value()
+    ayon_data["productName"] = ayon_data["productType"] + ayon_data["variant"].capitalize()
+
+    node[INSTANCE_DATA_KNOB].setValue(JSON_PREFIX+json.dumps(ayon_data))
+    node.setName(ayon_data["productName"])
+    
+
+def get_nuke_override_knob_values(node):
+
+    node_data = get_node_data(node, INSTANCE_DATA_KNOB)
+    plugin_name = "".join(w.capitalize() for w in node_data["creator_identifier"].split("_"))
+
+    try:
+        all_nuke_settings = get_project_settings(Context.project_name)["nuke"]
+    except Exception:
+        all_nuke_settings = {}
+
+    create_settings = all_nuke_settings.get("create", {})
+    imageio_settings = all_nuke_settings.get("imageio", {})
+
+    creator_plugin_settings = create_settings.get(plugin_name, {})
+    exposed_knobs = creator_plugin_settings.get("exposed_knobs", [])  + ["file_type"]
+    default_variants = creator_plugin_settings.get("default_variants", [])
+
+    knob_values_by_variant = {variant: [] for variant in default_variants}
+
+    override_nodes = imageio_settings.get("nodes", {}).get("override_nodes", [])
+
+    for override in override_nodes:
+        if plugin_name in override.get('plugins', []):
+            override_knobs_lookup = {
+                knob_dict.get("name"): knob_dict
+                for knob_dict in override.get('knobs', [])
+            }
+
+            matching_variants_in_override = set(default_variants).intersection(
+                set(override.get('product_names', []))
+            )
+
+            for variant in matching_variants_in_override:
+                for knob_name in exposed_knobs:
+                    knob_data = override_knobs_lookup.get(knob_name)
+                    if knob_data and knob_data.get("type") == "text":
+                        knob_text_value = knob_data.get("text")
+                        if knob_text_value is not None:
+                            knob_values_by_variant[variant].append((knob_name, knob_text_value))
+
+    return knob_values_by_variant
 
 
 def convert_knob_value_to_correct_type(knob_type, knob_value):

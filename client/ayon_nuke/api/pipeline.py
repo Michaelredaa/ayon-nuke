@@ -49,6 +49,10 @@ from .lib import (
     get_node_data,
     set_node_data,
     MENU_LABEL,
+    SKIP_VERSION_VALIDATION_KNOB,
+    NODE_TAB_NAME,
+    get_nuke_override_knob_values,
+    update_node,
 )
 from .workfile_template_builder import (
     build_workfile_template,
@@ -141,6 +145,32 @@ class NukeHost(
         root_node = nuke.root()
         set_node_data(root_node, ROOT_DATA_KNOB, data)
 
+def on_profile_changed():
+    node = nuke.thisNode()
+    knob = nuke.thisKnob()
+    if knob.name() == "profile":
+        knobs_overrides = get_nuke_override_knob_values(node)
+        for knob_name, value in knobs_overrides.get(node.knob("profile").value(), []):
+            if knob_name == "file_type":
+                file_type = value
+                filepath = node.knob("file").value()
+                dir, name = os.path.split(filepath)
+                base_name = name.split(".")[0]
+                log.info(f"File type: {file_type} | Base name: {base_name} | Dir: {dir}")
+                
+                if file_type == "mov":
+                    new_name = f"{base_name}.{file_type}"
+                else:
+                    new_name = f"{base_name}.####.{file_type}"
+                    
+                filepath = f"{dir}/{new_name}"
+                node.knob("file").setValue(filepath)
+                
+            if node.knob(knob_name):
+                node.knob(knob_name).setValue(value)
+
+        update_node(node)
+
 
 def add_nuke_callbacks():
     """ Adding all available nuke callbacks
@@ -167,6 +197,8 @@ def add_nuke_callbacks():
 
     # set apply all workfile settings on script load and save
     nuke.addOnScriptLoad(WorkfileSettings().set_context_settings)
+
+    nuke.addKnobChanged(on_profile_changed, nodeClass="Group")
 
     if nuke_settings["dirmap"]["enabled"]:
         log.info("Added Nuke's dir-mapping callback ...")
@@ -431,6 +463,11 @@ def containerise(node,
     )
 
     set_avalon_knob_data(node, data)
+    
+    # Adding special knob to hide the node from version validation
+    label = SKIP_VERSION_VALIDATION_KNOB.replace('_', ' ').title()
+    node.addKnob(nuke.Boolean_Knob(SKIP_VERSION_VALIDATION_KNOB, label, tap=NODE_TAB_NAME))
+    node.knob(SKIP_VERSION_VALIDATION_KNOB).setValue(False)
 
     # set tab to first native
     node.setTab(0)
@@ -507,6 +544,9 @@ def ls():
     for n in nodes:
         container = parse_container(n)
         if container:
+            if n.knob(SKIP_VERSION_VALIDATION_KNOB):
+                if n.knob(SKIP_VERSION_VALIDATION_KNOB).value() == False:
+                    continue
             yield container
 
 
