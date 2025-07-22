@@ -1381,16 +1381,14 @@ def add_profile_knob(GN, data):
     GN.addKnob(nuke.Enumeration_Knob('profile', 'Profile', default_variants))
     GN.addKnob(nuke.Text_Knob("_separator", ""))
     
-    data["variant"] = GN['profile'].value()
-    data["productName"] = data["productType"] + data["variant"].capitalize()
-    GN.setName(data["productName"])
+    GN.knob("profile").setValue(data["variant"])
     
 
 def update_node(node):
     rawdata = node[INSTANCE_DATA_KNOB].getValue()
     ayon_data = json.loads(rawdata[len(JSON_PREFIX):])
     ayon_data["variant"] = node['profile'].value()
-    ayon_data["productName"] = ayon_data["productType"] + ayon_data["variant"].capitalize()
+    ayon_data["productName"] = ayon_data["productType"] + ayon_data["task"].capitalize() + ayon_data["variant"].capitalize()
 
     node[INSTANCE_DATA_KNOB].setValue(JSON_PREFIX+json.dumps(ayon_data))
     node.setName(ayon_data["productName"])
