@@ -53,6 +53,7 @@ from .lib import (
     NODE_TAB_NAME,
     get_nuke_override_knob_values,
     update_node,
+    set_node_knobs_from_settings,
 )
 from .workfile_template_builder import (
     build_workfile_template,
@@ -149,7 +150,18 @@ def on_profile_changed():
     node = nuke.thisNode()
     knob = nuke.thisKnob()
     if knob.name() == "profile":
-        knobs_overrides = get_nuke_override_knob_values(node)
+        
+        write_node = None
+        node.begin()
+        for x in nuke.allNodes():
+            if x.Class() == "Write":
+                write_node = x
+        node.end()
+
+        knobs_overrides, all_knobs_data = get_nuke_override_knob_values(node)
+        if not write_node:
+            set_node_knobs_from_settings(write_node, all_knobs_data)
+            
         for knob_name, value in knobs_overrides.get(node.knob("profile").value(), []):
             if knob_name == "file_type":
                 file_type = value

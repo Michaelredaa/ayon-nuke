@@ -1395,7 +1395,6 @@ def update_node(node):
     
 
 def get_nuke_override_knob_values(node):
-
     node_data = get_node_data(node, INSTANCE_DATA_KNOB)
     plugin_name = "".join(w.capitalize() for w in node_data["creator_identifier"].split("_"))
 
@@ -1412,6 +1411,7 @@ def get_nuke_override_knob_values(node):
     default_variants = creator_plugin_settings.get("default_variants", [])
 
     knob_values_by_variant = {variant: [] for variant in default_variants}
+    all_knobs_data = {}
 
     override_nodes = imageio_settings.get("nodes", {}).get("override_nodes", [])
 
@@ -1427,6 +1427,8 @@ def get_nuke_override_knob_values(node):
             )
 
             for variant in matching_variants_in_override:
+                all_knobs_data[variant] = override.get('knobs', {})
+                
                 for knob_name in exposed_knobs:
                     knob_data = override_knobs_lookup.get(knob_name)
                     if knob_data and knob_data.get("type") == "text":
@@ -1434,7 +1436,7 @@ def get_nuke_override_knob_values(node):
                         if knob_text_value is not None:
                             knob_values_by_variant[variant].append((knob_name, knob_text_value))
 
-    return knob_values_by_variant
+    return knob_values_by_variant, all_knobs_data
 
 
 def convert_knob_value_to_correct_type(knob_type, knob_value):
