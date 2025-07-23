@@ -1283,10 +1283,20 @@ class ExporterReviewMov(ExporterReview):
         # Read node
         r_node = nuke.createNode("Read")
         r_node["file"].setValue(self.path_in)
-        r_node["first"].setValue(self.first_frame)
-        r_node["origfirst"].setValue(self.first_frame)
-        r_node["last"].setValue(self.last_frame)
-        r_node["origlast"].setValue(self.last_frame)
+        
+        if self.path_in.endswith(".mov"):
+            range = self.last_frame - self.first_frame + 1
+            r_node["first"].setValue(1)
+            r_node["origfirst"].setValue(1)
+            r_node["last"].setValue(range)
+            r_node["origlast"].setValue(range)
+            r_node['frame_mode'].setValue("start at")
+            r_node['frame'].setValue(str(self.first_frame))
+        else:
+            r_node["first"].setValue(self.first_frame)
+            r_node["origfirst"].setValue(self.first_frame)
+            r_node["last"].setValue(self.last_frame)
+            r_node["origlast"].setValue(self.last_frame)
         r_node["colorspace"].setValue(self.write_colorspace)
         r_node["on_error"].setValue(kwargs.get("fill_missing_frames", "0"))
 
