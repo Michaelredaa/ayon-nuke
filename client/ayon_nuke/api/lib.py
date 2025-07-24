@@ -176,10 +176,6 @@ def set_node_data(node, knobname, data):
     knob.setFlag(nuke.INVISIBLE)
     node.addKnob(knob)
     
-    # # Adding special knob to hide the node from version validation
-    # label = SKIP_VERSION_VALIDATION_KNOB.replace('_', ' ').title()
-    # node.addKnob(nuke.Boolean_Knob(SKIP_VERSION_VALIDATION_KNOB, label, tap=NODE_TAB_NAME))
-    # node.knob(SKIP_VERSION_VALIDATION_KNOB).setValue(False)
 
 
 def get_node_data(node, knobname):
@@ -193,7 +189,7 @@ def get_node_data(node, knobname):
         dict: data stored in knob
     """
     if knobname not in node.knobs():
-        return
+        return {}
 
     rawdata = node[knobname].getValue()
     if (
@@ -203,7 +199,7 @@ def get_node_data(node, knobname):
         try:
             return json.loads(rawdata[len(JSON_PREFIX):])
         except json.JSONDecodeError:
-            return
+            return {}
 
 
 def update_node_data(node, knobname, data):
@@ -1203,7 +1199,15 @@ def create_write_node(
         log.warning("Path does not exist! I am creating it.")
         os.makedirs(os.path.dirname(fpath))
 
+    log.debug(f"Creator data: {data}")
     GN = nuke.createNode("Group", "name {}".format(name))
+    #ayon_data["productType"] + ayon_data["task"].capitalize()
+    node_data = {
+        "productType": data["productType"],
+        "task": data["task"]["name"],
+        "creator_identifier": data["creator"],
+        }
+    set_node_data(GN, INSTANCE_DATA_KNOB, node_data)
 
     prev_node = None
     with GN:
@@ -1385,19 +1389,24 @@ def add_profile_knob(GN, data):
     
 
 def update_node(node):
-    rawdata = node[INSTANCE_DATA_KNOB].getValue()
-    ayon_data = json.loads(rawdata[len(JSON_PREFIX):])
-    ayon_data["variant"] = node['profile'].value()
-    ayon_data["productName"] = ayon_data["productType"] + ayon_data["task"].capitalize() + ayon_data["variant"].capitalize()
+    node_data = get_node_data(node, INSTANCE_DATA_KNOB)  
+    
+    plugin_name = "".join(w.capitalize() for w in node_data["creator_identifier"].split("_"))
+    
+    task = ""
+    if plugin_name == "CreateWriteRender":
+        task = node_data["task"].capitalize()
+    
+    node_data["variant"] = node['profile'].value()
+    node_data["productName"] = node_data["productType"] + task  + node_data["variant"].capitalize()
 
-    node[INSTANCE_DATA_KNOB].setValue(JSON_PREFIX+json.dumps(ayon_data))
-    node.setName(ayon_data["productName"])
+    set_node_data(node, INSTANCE_DATA_KNOB, node_data)  
+    node.setName(node_data["productName"])
     
 
 def get_nuke_override_knob_values(node):
-    node_data = get_node_data(node, INSTANCE_DATA_KNOB)
+    node_data = get_node_data(node, INSTANCE_DATA_KNOB)   
     plugin_name = "".join(w.capitalize() for w in node_data["creator_identifier"].split("_"))
-
     try:
         all_nuke_settings = get_project_settings(Context.project_name)["nuke"]
     except Exception:

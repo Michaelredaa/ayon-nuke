@@ -150,7 +150,7 @@ def on_profile_changed():
     node = nuke.thisNode()
     knob = nuke.thisKnob()
     if knob.name() == "profile":
-        
+        profile = node.knob("profile").value()
         write_node = None
         node.begin()
         for x in nuke.allNodes():
@@ -159,23 +159,23 @@ def on_profile_changed():
         node.end()
 
         knobs_overrides, all_knobs_data = get_nuke_override_knob_values(node)
-        if not write_node:
-            set_node_knobs_from_settings(write_node, all_knobs_data)
+
+        if write_node:
+            set_node_knobs_from_settings(write_node, all_knobs_data.get(profile, []))
             
-        for knob_name, value in knobs_overrides.get(node.knob("profile").value(), []):
+        for knob_name, value in knobs_overrides.get(profile, []):
             if knob_name == "file_type":
                 file_type = value
                 filepath = node.knob("file").value()
                 dir, name = os.path.split(filepath)
-                base_name = name.split(".")[0]
-                log.info(f"File type: {file_type} | Base name: {base_name} | Dir: {dir}")
+                dir = os.path.dirname(dir)
                 
                 if file_type == "mov":
-                    new_name = f"{base_name}.{file_type}"
+                    new_name = f"{profile}.{file_type}"
                 else:
-                    new_name = f"{base_name}.####.{file_type}"
+                    new_name = f"{profile}.####.{file_type}"
                     
-                filepath = f"{dir}/{new_name}"
+                filepath = f"{dir}/{profile}/{new_name}"
                 node.knob("file").setValue(filepath)
                 
             if node.knob(knob_name):
@@ -557,7 +557,7 @@ def ls():
         container = parse_container(n)
         if container:
             if n.knob(SKIP_VERSION_VALIDATION_KNOB):
-                if n.knob(SKIP_VERSION_VALIDATION_KNOB).value() == False:
+                if n.knob(SKIP_VERSION_VALIDATION_KNOB).value() == True:
                     continue
             yield container
 
