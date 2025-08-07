@@ -1396,6 +1396,8 @@ def update_node(node):
     task = ""
     if plugin_name == "CreateWriteRender":
         task = node_data["task"].capitalize()
+    else:
+        node_data["review"] = True
     
     node_data["variant"] = node['profile'].value()
     node_data["productName"] = node_data["productType"] + task  + node_data["variant"].capitalize()
