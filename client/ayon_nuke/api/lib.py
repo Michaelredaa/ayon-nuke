@@ -1,4 +1,5 @@
 import os
+import profile
 import re
 import json
 import functools
@@ -1257,7 +1258,7 @@ def create_write_node(
         now_node.setInput(0, prev_node)
 
 
-    add_profile_knob(GN, data)
+    profile_knob = add_profile_knob(GN, data)
 
     # add divider
     GN.addKnob(nuke.Text_Knob('', 'Rendering'))
@@ -1385,7 +1386,31 @@ def add_profile_knob(GN, data):
     GN.addKnob(nuke.Enumeration_Knob('profile', 'Profile', default_variants))
     GN.addKnob(nuke.Text_Knob("_separator", ""))
     
-    GN.knob("profile").setValue(data["variant"])
+    profile = data["variant"]
+    GN.knob("profile").setValue(profile)
+    
+    write_node = None
+    GN.begin()
+    for x in nuke.allNodes():
+        if x.Class() == "Write":
+            write_node = x
+    if not write_node:
+        return
+    GN.end()
+    
+    filepath = write_node.knob("file").value()
+    file_type = write_node.knob("file_type").value()
+    dir, name = os.path.split(filepath)
+    dir = os.path.dirname(dir)
+    
+    if file_type == "mov":
+        new_name = f"{profile}.{file_type}"
+    else:
+        new_name = f"{profile}.####.{file_type}"
+
+    filepath = f"{dir}/{profile}/{new_name}"
+    write_node.knob("file").setValue(filepath)
+
     
 
 def update_node(node):
