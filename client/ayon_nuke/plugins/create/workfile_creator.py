@@ -1,5 +1,3 @@
-import ayon_api
-
 import ayon_nuke.api as api
 from ayon_core.pipeline import (
     AutoCreator,
@@ -15,6 +13,7 @@ import nuke
 class WorkfileCreator(AutoCreator):
 
     settings_category = "nuke"
+    is_mandatory = False
 
     identifier = "workfile"
     product_type = "workfile"
@@ -30,23 +29,22 @@ class WorkfileCreator(AutoCreator):
             root_node, api.INSTANCE_DATA_KNOB
         )
 
-        project_name = self.create_context.get_current_project_name()
-        folder_path = self.create_context.get_current_folder_path()
-        task_name = self.create_context.get_current_task_name()
+        project_entity = self.create_context.get_current_project_entity()
+        folder_entity = self.create_context.get_current_folder_entity()
+        task_entity = self.create_context.get_current_task_entity()
+
+        project_name = project_entity["name"]
+        folder_path = folder_entity["path"]
+        task_name = task_entity["name"]
         host_name = self.create_context.host_name
 
-        folder_entity = ayon_api.get_folder_by_path(
-            project_name, folder_path
-        )
-        task_entity = ayon_api.get_task_by_name(
-            project_name, folder_entity["id"], task_name
-        )
         product_name = self.get_product_name(
-            project_name,
-            folder_entity,
-            task_entity,
-            self.default_variant,
-            host_name,
+            project_name=project_name,
+            project_entity=project_entity,
+            folder_entity=folder_entity,
+            task_entity=task_entity,
+            variant=self.default_variant,
+            host_name=host_name,
         )
         instance_data.update({
             "folderPath": folder_path,
@@ -65,6 +63,8 @@ class WorkfileCreator(AutoCreator):
         instance = CreatedInstance(
             self.product_type, product_name, instance_data, self
         )
+        if hasattr(instance, "set_mandatory"):
+            instance.set_mandatory(self.is_mandatory)
         instance.transient_data["node"] = root_node
         self._add_instance_to_context(instance)
 
