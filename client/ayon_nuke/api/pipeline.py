@@ -149,6 +149,11 @@ class NukeHost(
 def on_profile_changed():
     node = nuke.thisNode()
     knob = nuke.thisKnob()
+    
+    if knob.name() == "__variant_name":
+        update_node(node)
+        return
+        
     if knob.name() == "profile":
         profile = node.knob("profile").value()
         write_node = None
@@ -182,7 +187,6 @@ def on_profile_changed():
                 node.knob(knob_name).setValue(value)
 
         update_node(node)
-
 
 def add_nuke_callbacks():
     """ Adding all available nuke callbacks

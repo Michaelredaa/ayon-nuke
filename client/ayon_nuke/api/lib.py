@@ -1,5 +1,4 @@
 import os
-import profile
 import re
 import json
 import functools
@@ -83,7 +82,6 @@ SKIP_VERSION_VALIDATION_KNOB = "skip_version_validattion"
 
 class DeprecatedWarning(DeprecationWarning):
     pass
-
 
 def deprecated(new_destination):
     """Mark functions as deprecated.
@@ -1370,25 +1368,26 @@ def set_node_knobs_from_settings(node, knob_settings, **kwargs):
         knob_value = convert_knob_value_to_correct_type(
             knob_type, knob_value)
 
-        node[knob_name].setValue(knob_value)
-
+        node[knob_name].setValue(knob_value)  
+    
 
 def add_profile_knob(GN, data):
     plugin_name = data["creator"]
-    
     all_nuke_settings = get_project_settings(Context.project_name)["nuke"]
     create_settings = all_nuke_settings.get("create", {})
     creator_plugin_settings = create_settings.get(plugin_name, {})
     default_variants = creator_plugin_settings.get("default_variants", [])
 
     GN.addKnob(nuke.Text_Knob('divider', 'Render Types'))
-    # GN.addKnob(nuke.Enumeration_Knob('ayon_publish_type', 'Type', ["Render", "Prerender"]))
     GN.addKnob(nuke.Enumeration_Knob('profile', 'Profile', default_variants))
+    GN.addKnob(nuke.Text_Knob("product_label", "Product Name", ""))
+    GN.addKnob(nuke.String_Knob("__variant_name", "Variant Name", ""))
+
     GN.addKnob(nuke.Text_Knob("_separator", ""))
-    
+
     profile = data["variant"]
     GN.knob("profile").setValue(profile)
-    
+
     write_node = None
     GN.begin()
     for x in nuke.allNodes():
@@ -1397,12 +1396,12 @@ def add_profile_knob(GN, data):
     if not write_node:
         return
     GN.end()
-    
+
     filepath = write_node.knob("file").value()
     file_type = write_node.knob("file_type").value()
     dir, name = os.path.split(filepath)
     dir = os.path.dirname(dir)
-    
+
     if file_type == "mov":
         new_name = f"{profile}.{file_type}"
     else:
@@ -1411,25 +1410,25 @@ def add_profile_knob(GN, data):
     filepath = f"{dir}/{profile}/{new_name}"
     write_node.knob("file").setValue(filepath)
 
-    
+
 
 def update_node(node):
     node_data = get_node_data(node, INSTANCE_DATA_KNOB)  
-    
     plugin_name = "".join(w.capitalize() for w in node_data["creator_identifier"].split("_"))
-    
     task = ""
     if plugin_name == "CreateWriteRender":
         task = node_data["task"].capitalize()
     else:
         node_data["review"] = True
-    
     node_data["variant"] = node['profile'].value()
     node_data["productName"] = node_data["productType"] + task  + node_data["variant"].capitalize()
-
     set_node_data(node, INSTANCE_DATA_KNOB, node_data)  
-    node.setName(node_data["productName"])
-    
+    variant_name = node["__variant_name"].value().strip()
+    pname = node_data["productName"]
+    final_name = f"{pname}{variant_name}"
+    node["product_label"].setValue(final_name)
+    node.setName(final_name)
+
 
 def get_nuke_override_knob_values(node):
     node_data = get_node_data(node, INSTANCE_DATA_KNOB)   
