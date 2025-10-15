@@ -1373,7 +1373,7 @@ def add_profile_knob(GN, data):
 
     GN.addKnob(nuke.Text_Knob('divider', 'Render Types'))
     GN.addKnob(nuke.Enumeration_Knob('profile', 'Profile', default_variants))
-    GN.addKnob(nuke.Text_Knob("product_label", "Product Name", ""))
+    GN.addKnob(nuke.Text_Knob("product_label", "Product Name", f'<font color="#FFD700">{GN.name()}</font>'))
     GN.addKnob(nuke.String_Knob("__variant_name", "Variant Name", ""))
 
     GN.addKnob(nuke.Text_Knob("_separator", ""))
@@ -1419,7 +1419,7 @@ def update_node(node):
     variant_name = node["__variant_name"].value().strip()
     pname = node_data["productName"]
     final_name = f"{pname}{variant_name}"
-    node["product_label"].setValue(final_name)
+    node["product_label"].setValue(f'<font color="#FFD700">{final_name}</font>')
     node.setName(final_name)
 
 
